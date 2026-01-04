@@ -8,7 +8,7 @@
 <style>
 body{
   margin:0;
-  font-family: system-ui, Arial, sans-serif;
+  font-family:system-ui, Arial, sans-serif;
   background:#0b1220;
   color:#eaf0ff;
   display:flex;
@@ -17,191 +17,169 @@ body{
   min-height:100vh;
 }
 .game{
-  width:980px;
+  width:1000px;
   max-width:96%;
   background:#101a33;
-  border-radius:14px;
-  padding:14px;
+  border-radius:16px;
+  padding:16px;
 }
 .header{
   display:flex;
   justify-content:space-between;
   font-size:14px;
-  margin-bottom:6px;
+  margin-bottom:8px;
 }
 .question{
-  font-size:16px;
-  margin:8px 0 12px;
+  font-size:17px;
+  margin:10px 0;
+}
+.options{
+  font-size:14px;
+  line-height:1.5;
+  margin-bottom:10px;
 }
 canvas{
   width:100%;
   background:#0e1730;
-  border-radius:12px;
+  border-radius:14px;
 }
 .controls{
   display:flex;
   justify-content:center;
   gap:10px;
   margin-top:10px;
+  flex-wrap:wrap;
 }
 button{
   background:#2563eb;
   border:none;
-  color:white;
-  padding:8px 14px;
+  color:#fff;
+  padding:8px 16px;
   border-radius:8px;
   font-size:14px;
   cursor:pointer;
 }
-button.option.active{
-  background:#22c55e;
-}
+button.option.active{background:#22c55e}
+button:disabled{opacity:.5}
 .feedback{
   text-align:center;
+  font-size:16px;
   font-weight:700;
-  margin-top:8px;
+  margin-top:10px;
+  min-height:24px;
 }
 .correct{color:#35d07f}
 .wrong{color:#ff5a6a}
 .note{
+  text-align:center;
   font-size:13px;
   color:#a9b6d6;
   margin-top:6px;
-  text-align:center;
 }
 </style>
 </head>
 
 <body>
 <div class="game">
+
   <div class="header">
     <div>Question <span id="qnum"></span>/<span id="qtotal"></span></div>
     <div>Score: <span id="score">0</span></div>
   </div>
 
   <div class="question" id="questionText"></div>
+  <div class="options" id="optionText"></div>
 
-  <canvas id="table" width="900" height="460"></canvas>
+  <canvas id="table" width="900" height="520"></canvas>
 
   <div class="controls">
-    <button class="option" onclick="aim(0)">A</button>
-    <button class="option" onclick="aim(1)">B</button>
-    <button class="option" onclick="aim(2)">C</button>
-    <button class="option" onclick="aim(3)">D</button>
-    <button onclick="hit()">Hit</button>
+    <button class="option" onclick="selectOption(0)">A</button>
+    <button class="option" onclick="selectOption(1)">B</button>
+    <button class="option" onclick="selectOption(2)">C</button>
+    <button class="option" onclick="selectOption(3)">D</button>
+    <button id="hitBtn" onclick="hit()">Hit</button>
   </div>
 
   <div class="feedback" id="feedback"></div>
-  <div class="note">Aim at the option itself and press Hit.</div>
+  <div class="note">Select an option, then press Hit.</div>
+
 </div>
 
 <script>
-/* ================= QUESTIONS ================= */
+/* ================= QUESTIONS (FROM PASSWORD GUIDELINES) ================= */
 const QUESTIONS = [
-  {
-    q:"A password is primarily used to confirm a user’s ____.",
-    o:["Location","Identity","Device model","Internet speed"],
-    c:1
-  },
-  {
-    q:"Passwords are a common method of:",
-    o:["Encryption","Authentication","Compression","Backup"],
-    c:1
-  },
-  {
-    q:"Why should passwords be unique for each account?",
-    o:["Easy typing","Limits damage if leaked","Saves memory","Improves speed"],
-    c:1
-  },
-  {
-    q:"Strong passwords should include:",
-    o:["Only letters","Only numbers","Mixed characters","Your name"],
-    c:2
-  }
+ {q:"A password is primarily used to confirm a user’s ____.",
+  o:["Location","Identity","Device model","Internet speed"], c:1},
+ {q:"Passwords are a common method of:",
+  o:["Encryption","Authentication","Compression","Backup"], c:1},
+ {q:"Why should passwords be unique for each account?",
+  o:["Easy typing","Limits damage if leaked","Saves memory","Improves speed"], c:1},
+ {q:"Strong passwords should include:",
+  o:["Only letters","Only numbers","Uppercase, lowercase, numbers, symbols","Your name"], c:2},
+ {q:"Which attack involves watching someone type a password?",
+  o:["Brute force","Dictionary attack","Shoulder surfing","Phishing"], c:2},
+ {q:"Two-factor authentication improves security by:",
+  o:["Replacing passwords","Adding an extra verification step","Encrypting data","Blocking all attacks"], c:1}
 ];
 
 /* ================= STATE ================= */
-let qi=0, score=0, selected=null;
+let qi=0, score=0, selected=null, animating=false;
 const canvas=document.getElementById("table");
 const ctx=canvas.getContext("2d");
 
 document.getElementById("qtotal").textContent=QUESTIONS.length;
 
-/* ================= LAYOUT ================= */
-const cue={x:450,y:360};
+/* ================= TABLE GEOMETRY ================= */
+const center={x:450,y:260};
 const balls=[
-  {x:150,y:180},
-  {x:350,y:180},
-  {x:550,y:180},
-  {x:750,y:180}
+  {x:220,y:260,label:"A",color:"#3b82f6"}, // left
+  {x:450,y:120,label:"B",color:"#22c55e"}, // top
+  {x:680,y:260,label:"C",color:"#f59e0b"}, // right
+  {x:450,y:400,label:"D",color:"#a855f7"}  // bottom
 ];
 const holes=[
-  {x:150,y:90},
-  {x:350,y:90},
-  {x:550,y:90},
-  {x:750,y:90}
+  {x:120,y:260},{x:450,y:40},{x:780,y:260},{x:450,y:480}
 ];
-
-/* ================= HELPERS ================= */
-function wrapText(text,x,y,maxWidth,lineHeight){
-  const words=text.split(" ");
-  let line="", yy=y;
-  for(let i=0;i<words.length;i++){
-    const test=line+words[i]+" ";
-    if(ctx.measureText(test).width>maxWidth && i>0){
-      ctx.fillText(line,x,yy);
-      line=words[i]+" ";
-      yy+=lineHeight;
-    }else{
-      line=test;
-    }
-  }
-  ctx.fillText(line,x,yy);
-}
+let cue={x:center.x,y:center.y};
 
 /* ================= DRAW ================= */
 function draw(){
-  ctx.clearRect(0,0,900,460);
+  ctx.clearRect(0,0,900,520);
 
   // holes
   holes.forEach(h=>{
     ctx.beginPath();
     ctx.fillStyle="#000";
-    ctx.arc(h.x,h.y,18,0,Math.PI*2);
+    ctx.arc(h.x,h.y,32,0,Math.PI*2);
     ctx.fill();
   });
 
-  // option balls + text
+  // option balls
   balls.forEach((b,i)=>{
     ctx.beginPath();
-    ctx.fillStyle=i===selected?"#22c55e":"#93c5fd";
-    ctx.arc(b.x,b.y,28,0,Math.PI*2);
+    ctx.fillStyle=b.color;
+    ctx.arc(b.x,b.y,24,0,Math.PI*2);
     ctx.fill();
 
     ctx.fillStyle="#000";
-    ctx.font="bold 14px system-ui";
-    ctx.fillText(["A","B","C","D"][i],b.x-5,b.y+5);
+    ctx.font="bold 15px system-ui";
+    ctx.fillText(b.label,b.x-6,b.y+6);
 
-    // option text
-    ctx.fillStyle="#eaf0ff";
-    ctx.font="13px system-ui";
-    wrapText(
-      QUESTIONS[qi].o[i],
-      b.x-55,
-      b.y+45,
-      110,
-      14
-    );
+    if(i===selected){
+      ctx.strokeStyle="#fff";
+      ctx.lineWidth=3;
+      ctx.stroke();
+    }
   });
 
   // cue ball
   ctx.beginPath();
   ctx.fillStyle="#fff";
-  ctx.arc(cue.x,cue.y,16,0,Math.PI*2);
+  ctx.arc(cue.x,cue.y,18,0,Math.PI*2);
   ctx.fill();
 
-  // cue stick
-  if(selected!==null){
+  // cue line
+  if(selected!==null && !animating){
     ctx.strokeStyle="#c7d2fe";
     ctx.lineWidth=4;
     ctx.beginPath();
@@ -211,27 +189,61 @@ function draw(){
   }
 }
 
-/* ================= LOGIC ================= */
+/* ================= LOAD QUESTION ================= */
 function loadQ(){
+  const q=QUESTIONS[qi];
   document.getElementById("qnum").textContent=qi+1;
-  document.getElementById("questionText").textContent=QUESTIONS[qi].q;
+  document.getElementById("questionText").textContent=q.q;
+  document.getElementById("optionText").innerHTML=
+    `A. ${q.o[0]}<br>B. ${q.o[1]}<br>C. ${q.o[2]}<br>D. ${q.o[3]}`;
   document.getElementById("feedback").textContent="";
   document.querySelectorAll(".option").forEach(b=>b.classList.remove("active"));
   selected=null;
+  cue.x=center.x; cue.y=center.y;
+  animating=false;
   draw();
 }
 
-function aim(i){
+/* ================= SELECTION ================= */
+function selectOption(i){
+  if(animating) return;
   selected=i;
   document.querySelectorAll(".option").forEach(b=>b.classList.remove("active"));
   document.querySelectorAll(".option")[i].classList.add("active");
   draw();
 }
 
-function hit(){
-  if(selected===null) return;
-  const fb=document.getElementById("feedback");
+/* ================= ANIMATION ================= */
+function animateMove(obj,tx,ty,steps,cb){
+  let dx=(tx-obj.x)/steps, dy=(ty-obj.y)/steps, c=0;
+  function step(){
+    obj.x+=dx; obj.y+=dy;
+    draw();
+    c++;
+    if(c<steps) requestAnimationFrame(step);
+    else cb();
+  }
+  step();
+}
 
+/* ================= HIT ================= */
+function hit(){
+  if(selected===null || animating) return;
+  animating=true;
+
+  const targetBall=balls[selected];
+  const targetHole=holes[selected];
+
+  animateMove(cue,targetBall.x,targetBall.y,20,()=>{
+    animateMove(targetBall,targetHole.x,targetHole.y,20,()=>{
+      showFeedback();
+    });
+  });
+}
+
+/* ================= FEEDBACK ================= */
+function showFeedback(){
+  const fb=document.getElementById("feedback");
   if(selected===QUESTIONS[qi].c){
     score+=10;
     fb.textContent="Correct";
@@ -248,9 +260,10 @@ function hit(){
       loadQ();
     }else{
       document.getElementById("questionText").textContent="Game Completed";
+      document.getElementById("optionText").innerHTML="";
       fb.textContent="Final Score: "+score;
     }
-  },1000);
+  },1800);
 }
 
 /* ================= START ================= */
