@@ -17,7 +17,7 @@ body{
   min-height:100vh;
 }
 .game{
-  width:920px;
+  width:980px;
   max-width:96%;
   background:#101a33;
   border-radius:14px;
@@ -37,14 +37,12 @@ canvas{
   width:100%;
   background:#0e1730;
   border-radius:12px;
-  touch-action:none;
 }
 .controls{
   display:flex;
   justify-content:center;
   gap:10px;
   margin-top:10px;
-  flex-wrap:wrap;
 }
 button{
   background:#2563eb;
@@ -54,9 +52,6 @@ button{
   border-radius:8px;
   font-size:14px;
   cursor:pointer;
-}
-button.option{
-  background:#334155;
 }
 button.option.active{
   background:#22c55e;
@@ -86,7 +81,7 @@ button.option.active{
 
   <div class="question" id="questionText"></div>
 
-  <canvas id="table" width="800" height="420"></canvas>
+  <canvas id="table" width="900" height="460"></canvas>
 
   <div class="controls">
     <button class="option" onclick="aim(0)">A</button>
@@ -97,17 +92,14 @@ button.option.active{
   </div>
 
   <div class="feedback" id="feedback"></div>
-  <div class="note">Aim at the ball representing the correct option and press Hit.</div>
+  <div class="note">Aim at the option itself and press Hit.</div>
 </div>
 
 <script>
-/* =========================================================
-   QUESTIONS – STRICTLY FROM PASSWORD GUIDELINES CHAPTER
-   Source: Password Guidelines PDF
-   ========================================================= */
+/* ================= QUESTIONS ================= */
 const QUESTIONS = [
   {
-    q:"A password is typically a string of characters used to confirm a user’s ____.",
+    q:"A password is primarily used to confirm a user’s ____.",
     o:["Location","Identity","Device model","Internet speed"],
     c:1
   },
@@ -117,142 +109,98 @@ const QUESTIONS = [
     c:1
   },
   {
-    q:"Which is NOT a stated use of passwords?",
-    o:["Authentication","Access","Security","Data compression"],
-    c:3
-  },
-  {
-    q:"Why is it important to use unique passwords for different accounts?",
-    o:["To improve typing speed","To limit damage if one account is compromised","To save memory","To reduce internet usage"],
+    q:"Why should passwords be unique for each account?",
+    o:["Easy typing","Limits damage if leaked","Saves memory","Improves speed"],
     c:1
   },
   {
-    q:"A strong password should typically include:",
-    o:["Only lowercase letters","Only numbers","Uppercase, lowercase, numbers, and symbols","Only dictionary words"],
+    q:"Strong passwords should include:",
+    o:["Only letters","Only numbers","Mixed characters","Your name"],
     c:2
-  },
-  {
-    q:"Which practice should be avoided when creating passwords?",
-    o:["Using long passwords","Using personal information","Using special characters","Using different passwords"],
-    c:1
-  },
-  {
-    q:"Two-factor authentication (2FA) improves security by:",
-    o:["Replacing passwords","Adding an extra verification step","Encrypting stored data","Blocking all attacks"],
-    c:1
-  },
-  {
-    q:"Which is an advantage of strong password security?",
-    o:["Faster internet speed","Protection of sensitive information","Reduced hardware cost","Automatic backups"],
-    c:1
-  },
-  {
-    q:"Which attack involves observing a user while they type a password?",
-    o:["Brute-force attack","Dictionary attack","Shoulder surfing","Rainbow table attack"],
-    c:2
-  },
-  {
-    q:"A brute-force attack primarily relies on:",
-    o:["Guessing from dictionaries","Trying all possible combinations","Phishing emails","Social engineering calls"],
-    c:1
-  },
-  {
-    q:"Dictionary attacks attempt to crack passwords using:",
-    o:["Random symbols","Dictionary words","Biometric data","Network traffic"],
-    c:1
-  },
-  {
-    q:"Which practice reduces the risk of phishing attacks?",
-    o:["Sharing passwords with colleagues","Checking URLs carefully","Reusing passwords","Writing passwords down"],
-    c:1
-  },
-  {
-    q:"A keylogger is used to:",
-    o:["Generate strong passwords","Record keystrokes","Encrypt files","Block malware"],
-    c:1
-  },
-  {
-    q:"Credential stuffing exploits:",
-    o:["Weak encryption","Password reuse across sites","Slow networks","Outdated browsers"],
-    c:1
-  },
-  {
-    q:"Which is a recommended best practice?",
-    o:["Reuse the same password","Use a password manager","Write passwords in a notebook","Disable updates"],
-    c:1
-  },
-  {
-    q:"Public Wi-Fi networks are risky because they can be:",
-    o:["Slow","Easily compromised","Password protected","Encrypted by default"],
-    c:1
-  },
-  {
-    q:"Monitoring accounts regularly helps to:",
-    o:["Increase storage","Detect suspicious activity","Improve speed","Reset passwords automatically"],
-    c:1
-  },
-  {
-    q:"Social engineering attacks mainly target:",
-    o:["Network hardware","Human behaviour","Encryption algorithms","Firewalls"],
-    c:1
-  },
-  {
-    q:"Rainbow table attacks are used to:",
-    o:["Encrypt passwords","Crack password hashes","Store backups","Generate OTPs"],
-    c:1
-  },
-  {
-    q:"Using passphrases is recommended because they are:",
-    o:["Short and complex","Long, memorable, and hard to guess","Based on names","Random numbers only"],
-    c:1
   }
 ];
 
-/* ================= GAME STATE ================= */
+/* ================= STATE ================= */
 let qi=0, score=0, selected=null;
 const canvas=document.getElementById("table");
 const ctx=canvas.getContext("2d");
 
 document.getElementById("qtotal").textContent=QUESTIONS.length;
 
-/* ================= TABLE LAYOUT ================= */
-const cue={x:400,y:320};
+/* ================= LAYOUT ================= */
+const cue={x:450,y:360};
 const balls=[
-  {x:160,y:120,label:"A"},
-  {x:320,y:120,label:"B"},
-  {x:480,y:120,label:"C"},
-  {x:640,y:120,label:"D"}
+  {x:150,y:180},
+  {x:350,y:180},
+  {x:550,y:180},
+  {x:750,y:180}
 ];
 const holes=[
-  {x:160,y:60},{x:320,y:60},{x:480,y:60},{x:640,y:60}
+  {x:150,y:90},
+  {x:350,y:90},
+  {x:550,y:90},
+  {x:750,y:90}
 ];
+
+/* ================= HELPERS ================= */
+function wrapText(text,x,y,maxWidth,lineHeight){
+  const words=text.split(" ");
+  let line="", yy=y;
+  for(let i=0;i<words.length;i++){
+    const test=line+words[i]+" ";
+    if(ctx.measureText(test).width>maxWidth && i>0){
+      ctx.fillText(line,x,yy);
+      line=words[i]+" ";
+      yy+=lineHeight;
+    }else{
+      line=test;
+    }
+  }
+  ctx.fillText(line,x,yy);
+}
 
 /* ================= DRAW ================= */
 function draw(){
-  ctx.clearRect(0,0,800,420);
+  ctx.clearRect(0,0,900,460);
 
+  // holes
   holes.forEach(h=>{
     ctx.beginPath();
     ctx.fillStyle="#000";
-    ctx.arc(h.x,h.y,16,0,Math.PI*2);
+    ctx.arc(h.x,h.y,18,0,Math.PI*2);
     ctx.fill();
   });
 
+  // option balls + text
   balls.forEach((b,i)=>{
     ctx.beginPath();
     ctx.fillStyle=i===selected?"#22c55e":"#93c5fd";
-    ctx.arc(b.x,b.y,18,0,Math.PI*2);
+    ctx.arc(b.x,b.y,28,0,Math.PI*2);
     ctx.fill();
+
     ctx.fillStyle="#000";
     ctx.font="bold 14px system-ui";
-    ctx.fillText(b.label,b.x-5,b.y+5);
+    ctx.fillText(["A","B","C","D"][i],b.x-5,b.y+5);
+
+    // option text
+    ctx.fillStyle="#eaf0ff";
+    ctx.font="13px system-ui";
+    wrapText(
+      QUESTIONS[qi].o[i],
+      b.x-55,
+      b.y+45,
+      110,
+      14
+    );
   });
 
+  // cue ball
   ctx.beginPath();
   ctx.fillStyle="#fff";
-  ctx.arc(cue.x,cue.y,14,0,Math.PI*2);
+  ctx.arc(cue.x,cue.y,16,0,Math.PI*2);
   ctx.fill();
 
+  // cue stick
   if(selected!==null){
     ctx.strokeStyle="#c7d2fe";
     ctx.lineWidth=4;
@@ -265,9 +213,8 @@ function draw(){
 
 /* ================= LOGIC ================= */
 function loadQ(){
-  const q=QUESTIONS[qi];
   document.getElementById("qnum").textContent=qi+1;
-  document.getElementById("questionText").textContent=q.q;
+  document.getElementById("questionText").textContent=QUESTIONS[qi].q;
   document.getElementById("feedback").textContent="";
   document.querySelectorAll(".option").forEach(b=>b.classList.remove("active"));
   selected=null;
@@ -283,15 +230,14 @@ function aim(i){
 
 function hit(){
   if(selected===null) return;
-  const q=QUESTIONS[qi];
   const fb=document.getElementById("feedback");
 
-  if(selected===q.c){
+  if(selected===QUESTIONS[qi].c){
     score+=10;
     fb.textContent="Correct";
     fb.className="feedback correct";
   }else{
-    fb.textContent="Wrong. Correct answer: "+["A","B","C","D"][q.c];
+    fb.textContent="Wrong. Correct answer: "+["A","B","C","D"][QUESTIONS[qi].c];
     fb.className="feedback wrong";
   }
   document.getElementById("score").textContent=score;
