@@ -27,7 +27,15 @@ body{
   display:flex;
   justify-content:space-between;
   font-size:14px;
-  margin-bottom:8px;
+  margin-bottom:6px;
+}
+.instructions{
+  font-size:13px;
+  color:#c7d2fe;
+  background:#0e1730;
+  padding:10px;
+  border-radius:10px;
+  margin-bottom:10px;
 }
 .question{
   font-size:17px;
@@ -35,7 +43,7 @@ body{
 }
 .options{
   font-size:14px;
-  line-height:1.5;
+  line-height:1.6;
   margin-bottom:10px;
 }
 canvas{
@@ -66,16 +74,10 @@ button:disabled{opacity:.5}
   font-size:16px;
   font-weight:700;
   margin-top:10px;
-  min-height:24px;
+  min-height:26px;
 }
 .correct{color:#35d07f}
 .wrong{color:#ff5a6a}
-.note{
-  text-align:center;
-  font-size:13px;
-  color:#a9b6d6;
-  margin-top:6px;
-}
 </style>
 </head>
 
@@ -85,6 +87,15 @@ button:disabled{opacity:.5}
   <div class="header">
     <div>Question <span id="qnum"></span>/<span id="qtotal"></span></div>
     <div>Score: <span id="score">0</span></div>
+  </div>
+
+  <div class="instructions">
+    <b>How to Play:</b><br>
+    1. Read the question and options carefully.<br>
+    2. Select your answer using A, B, C, or D (or by clicking the ball).<br>
+    3. Press <b>Hit</b> to strike the ball.<br>
+    4. Feedback will appear before the next question.<br>
+    Each correct answer gives <b>+10 points</b>. No retries.
   </div>
 
   <div class="question" id="questionText"></div>
@@ -97,45 +108,66 @@ button:disabled{opacity:.5}
     <button class="option" onclick="selectOption(1)">B</button>
     <button class="option" onclick="selectOption(2)">C</button>
     <button class="option" onclick="selectOption(3)">D</button>
-    <button id="hitBtn" onclick="hit()">Hit</button>
+    <button onclick="hit()">Hit</button>
   </div>
 
   <div class="feedback" id="feedback"></div>
-  <div class="note">Select an option, then press Hit.</div>
 
 </div>
 
 <script>
-/* ================= QUESTIONS (FROM PASSWORD GUIDELINES) ================= */
+/* ================= QUESTIONS (BALANCED ANSWERS) ================= */
 const QUESTIONS = [
  {q:"A password is primarily used to confirm a user’s ____.",
-  o:["Location","Identity","Device model","Internet speed"], c:1},
+  o:["Identity","Location","Internet speed","Device model"], c:0},
+
  {q:"Passwords are a common method of:",
-  o:["Encryption","Authentication","Compression","Backup"], c:1},
- {q:"Why should passwords be unique for each account?",
-  o:["Easy typing","Limits damage if leaked","Saves memory","Improves speed"], c:1},
- {q:"Strong passwords should include:",
-  o:["Only letters","Only numbers","Uppercase, lowercase, numbers, symbols","Your name"], c:2},
- {q:"Which attack involves watching someone type a password?",
-  o:["Brute force","Dictionary attack","Shoulder surfing","Phishing"], c:2},
- {q:"Two-factor authentication improves security by:",
-  o:["Replacing passwords","Adding an extra verification step","Encrypting data","Blocking all attacks"], c:1}
+  o:["Backup","Compression","Authentication","Encryption"], c:2},
+
+ {q:"Which practice improves password security the most?",
+  o:["Reusing passwords","Using personal information","Short passwords","Using unique passwords"], c:3},
+
+ {q:"A strong password should ideally include:",
+  o:["Only numbers","Only letters","Uppercase, lowercase, numbers, symbols","Your name"], c:2},
+
+ {q:"Which attack involves trying many combinations automatically?",
+  o:["Phishing","Brute-force attack","Shoulder surfing","Social engineering"], c:1},
+
+ {q:"Observing someone while they type a password is called:",
+  o:["Dictionary attack","Phishing","Shoulder surfing","Credential stuffing"], c:2},
+
+ {q:"Two-factor authentication mainly helps by:",
+  o:["Replacing passwords","Adding another verification step","Encrypting files","Blocking the internet"], c:1},
+
+ {q:"Which is a recommended best practice?",
+  o:["Writing passwords down","Sharing passwords","Using a password manager","Using simple words"], c:2},
+
+ {q:"Credential stuffing attacks exploit:",
+  o:["Password reuse","Strong encryption","Firewalls","Antivirus software"], c:0},
+
+ {q:"Public Wi-Fi is risky mainly because it can be:",
+  o:["Slow","Encrypted","Easily compromised","Unavailable"], c:2},
+
+ {q:"Monitoring accounts regularly helps to:",
+  o:["Increase speed","Detect suspicious activity","Reduce storage","Disable updates"], c:1},
+
+ {q:"Social engineering attacks primarily target:",
+  o:["Software bugs","Human behavior","Hardware faults","Encryption keys"], c:1}
 ];
 
 /* ================= STATE ================= */
 let qi=0, score=0, selected=null, animating=false;
 const canvas=document.getElementById("table");
 const ctx=canvas.getContext("2d");
-
 document.getElementById("qtotal").textContent=QUESTIONS.length;
 
 /* ================= TABLE GEOMETRY ================= */
 const center={x:450,y:260};
 const balls=[
-  {x:220,y:260,label:"A",color:"#3b82f6"}, // left
-  {x:450,y:120,label:"B",color:"#22c55e"}, // top
-  {x:680,y:260,label:"C",color:"#f59e0b"}, // right
-  {x:450,y:400,label:"D",color:"#a855f7"}  // bottom
+  {x:220,y:260,label:"A",color:"#3b82f6",visible:true},
+  {x:450,y:120,label:"B",color:"#22c55e",visible:true},
+  {x:680,y:260,label:"C",color:"#f59e0b",visible:true},
+  {x:450,y:400,label:"D",color:"#a855f7",visible:true}
 ];
 const holes=[
   {x:120,y:260},{x:450,y:40},{x:780,y:260},{x:450,y:480}
@@ -146,7 +178,6 @@ let cue={x:center.x,y:center.y};
 function draw(){
   ctx.clearRect(0,0,900,520);
 
-  // holes
   holes.forEach(h=>{
     ctx.beginPath();
     ctx.fillStyle="#000";
@@ -154,8 +185,8 @@ function draw(){
     ctx.fill();
   });
 
-  // option balls
   balls.forEach((b,i)=>{
+    if(!b.visible) return;
     ctx.beginPath();
     ctx.fillStyle=b.color;
     ctx.arc(b.x,b.y,24,0,Math.PI*2);
@@ -172,13 +203,11 @@ function draw(){
     }
   });
 
-  // cue ball
   ctx.beginPath();
   ctx.fillStyle="#fff";
   ctx.arc(cue.x,cue.y,18,0,Math.PI*2);
   ctx.fill();
 
-  // cue line
   if(selected!==null && !animating){
     ctx.strokeStyle="#c7d2fe";
     ctx.lineWidth=4;
@@ -199,8 +228,9 @@ function loadQ(){
   document.getElementById("feedback").textContent="";
   document.querySelectorAll(".option").forEach(b=>b.classList.remove("active"));
   selected=null;
-  cue.x=center.x; cue.y=center.y;
   animating=false;
+  cue.x=center.x; cue.y=center.y;
+  balls.forEach(b=>b.visible=true);
   draw();
 }
 
@@ -230,12 +260,13 @@ function animateMove(obj,tx,ty,steps,cb){
 function hit(){
   if(selected===null || animating) return;
   animating=true;
-
   const targetBall=balls[selected];
   const targetHole=holes[selected];
 
-  animateMove(cue,targetBall.x,targetBall.y,20,()=>{
-    animateMove(targetBall,targetHole.x,targetHole.y,20,()=>{
+  animateMove(cue,targetBall.x,targetBall.y,18,()=>{
+    animateMove(targetBall,targetHole.x,targetHole.y,18,()=>{
+      targetBall.visible=false;   // vanish after hole
+      draw();
       showFeedback();
     });
   });
